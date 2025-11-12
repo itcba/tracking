@@ -1,5 +1,6 @@
 <?php
 // app/Livewire/TrackingApp.php
+
 namespace App\Livewire;
 
 use Livewire\Component;
@@ -9,32 +10,28 @@ use App\Exports\TrackingsExport;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
+use Livewire\WithPagination; // Penting untuk Paginasi
 
 class TrackingApp extends Component
 {
-    // Daftar user untuk dropdown login
+    use WithPagination; // Mengaktifkan Paginasi
+
+    // Tentukan tema paginasi agar sesuai style
+    protected $paginationTheme = 'tailwind';
+
+    // Properti untuk Login
     public Collection $allUsers;
-    
-    // Data untuk 'Live Update'
-    public Collection $liveRecords;
-
-    // Data untuk 'Dashboard'
-    public Collection $userRecords;
-
-    // Properti untuk form login
-    public $login_user_id = '';
-    public $login_pin = '';
-    public $loginError = '';
+    public $login_user_id = '', $login_pin = '', $loginError = '';
 
     // Properti untuk Modal
-    public $showModal = false;
-    public $modalAction = ''; // 'create' atau 'update'
-    public $editingRecord;
-    
-    // Properti untuk form 'Tambah'/'Update'
+    public $showModal = false, $modalAction = '', $editingRecord;
     public $vehicle_name, $plate_number, $description, $start_time;
 
-    // Daftar stages (seperti di JS Anda)
+    // Properti untuk Admin Tabel
+    public $search = ''; // Untuk kotak pencarian
+    public $perPage = 10; // Untuk dropdown "entries per page"
+
+    // Daftar stages (tetap sama)
     public $stages = [
         'security' => ['label' => 'Security', 'next' => 'loading'],
         'loading' => ['label' => 'Bongkar Muat', 'next' => 'ttb'],
@@ -46,68 +43,49 @@ class TrackingApp extends Component
      */
     public function mount()
     {
-        // Ambil semua user untuk dropdown login
         $this->allUsers = User::orderBy('name')->get();
-        
-        // Muat data (baik untuk dashboard atau live update)
-        $this->loadData();
     }
 
     /**
-     * Memuat data yang relevan dari database.
+     * Hook ini otomatis berjalan saat $search diubah
      */
-    public function loadData()
+    public function updatingSearch()
     {
-        if (Auth::check()) {
-            // Jika SUDAH login
-            $userRole = Auth::user()->role;
-            if ($userRole == 'admin') {
-                $this->userRecords = Tracking::latest()->get();
-            } else {
-                $this->userRecords = Tracking::where('current_stage', $userRole)
-                                            ->orWhere('current_stage', 'completed')
-                                            ->latest()
-                                            ->get();
-            }
-        } else {
-            // Jika BELUM login (untuk Live Update)
-            $this->liveRecords = Tracking::latest()->take(5)->get();
-        }
+        $this->resetPage();
+    }
+    
+    /**
+     * Hook ini otomatis berjalan saat $perPage diubah
+     */
+    public function updatingPerPage()
+    {
+        $this.resetPage();
     }
 
-    /**
-     * Fungsi Login.
-     */
+    // --- FUNGSI LOGIN / LOGOUT ---
+
     public function login()
     {
-        // Validasi input
         $credentials = [
             'id' => $this->login_user_id,
             'password' => $this->login_pin,
         ];
 
-        // Coba autentikasi
         if (Auth::attempt($credentials)) {
             session()->regenerate();
-            $this->loginError = '';
-            $this->login_pin = '';
-            $this->loadData(); // Muat data dashboard
+            return redirect('/');
         } else {
-            // Gagal login
             $this->loginError = 'PIN salah! Silakan coba lagi.';
             $this->login_pin = '';
         }
     }
 
-    /**
-     * Fungsi Logout.
-     */
     public function logout()
     {
         Auth::logout();
         session()->invalidate();
         session()->regenerateToken();
-        return redirect('/'); // Muat data live update
+        return redirect('/');
     }
 
     // --- FUNGSI MODAL ---
@@ -157,7 +135,7 @@ class TrackingApp extends Component
 
     public function createNewRecord()
     {
-        if (Auth::user()->role != 'security') return; // Keamanan
+        if (Auth::user()->role != 'security') return;
 
         $this->validate([
             'vehicle_name' => 'required|string|max:255',
@@ -171,32 +149,47 @@ class TrackingApp extends Component
             'plate_number' => $this->plate_number,
             'description' => $this->description,
             'security_start' => $this->start_time,
-            'current_stage' => 'security',
+            'current_stage' => 'active',
         ]);
 
         $this->closeModal();
-        $this->loadData();
     }
 
     public function updateRecord()
     {
-        $record = $this->editingRecord;
-        if (Auth::user()->role != $record->current_stage) return; // Keamanan
+        $record = Tracking::find($this->editingRecord->id);
+        if (!$record || $record->current_stage == 'completed') {
+            $this->closeModal();
+            return;
+        }
 
-        $currentStage = $record->current_stage;
-        $startField = $currentStage . '_start';
-        $endField = $currentStage . '_end';
+        $userRole = Auth::user()->role;
 
-        if (is_null($record->$startField)) {
-            $record->$startField = $this->start_time;
-        } else {
-            $record->$endField = $this->start_time;
-            $record->current_stage = $this->stages[$currentStage]['next'] ?? 'completed';
+        switch ($userRole) {
+            case 'security':
+                if (!is_null($record->loading_end) && !is_null($record->ttb_end)) {
+                    $record->security_end = $this->start_time;
+                    $record->current_stage = 'completed';
+                }
+                break;
+            case 'loading':
+                if (is_null($record->loading_start)) {
+                    $record->loading_start = $this->start_time;
+                } else {
+                    $record->loading_end = $this->start_time;
+                }
+                break;
+            case 'ttb':
+                if (is_null($record->ttb_start)) {
+                    $record->ttb_start = $this->start_time;
+                } else {
+                    $record->ttb_end = $this->start_time;
+                }
+                break;
         }
 
         $record->save();
         $this->closeModal();
-        $this->loadData();
     }
 
     // --- FUNGSI EXPORT ---
@@ -204,66 +197,45 @@ class TrackingApp extends Component
     public function exportExcel()
     {
         if (Auth::user()->role != 'admin') return;
-        return Excel::download(new TrackingsExport(), 'Laporan_Bongkar_Muat_'.now()->format('Ymd').'.xlsx');
+        return Excel::download(new TrackingsExport($this->search), 'Laporan_Bongkar_Muat_'.now()->format('Ymd').'.xlsx');
     }
-
-    // Modifikasi TrackingsExport
-    // Buka app/Exports/TrackingsExport.php dan sesuaikan
-    // (Tambahkan ini secara manual ke app/Exports/TrackingsExport.php)
-    /*
-    <?php
-    namespace App\Exports;
-
-    use App\Models\Tracking;
-    use Maatwebsite\Excel\Concerns\FromCollection;
-    use Maatwebsite\Excel\Concerns\WithHeadings;
-
-    class TrackingsExport implements FromCollection, WithHeadings
-    {
-        public function collection()
-        {
-            return Tracking::all()->map(function ($record) {
-                return [
-                    'vehicle_name' => $record->vehicle_name,
-                    'plate_number' => $record->plate_number,
-                    'description' => $record->description,
-                    'security_start' => $record->security_start ? $record->security_start->format('d/m/Y H:i') : '-',
-                    'security_end' => $record->security_end ? $record->security_end->format('d/m/Y H:i') : '-',
-                    'loading_start' => $record->loading_start ? $record->loading_start->format('d/m/Y H:i') : '-',
-                    'loading_end' => $record->loading_end ? $record->loading_end->format('d/m/Y H:i') : '-',
-                    'ttb_start' => $record->ttb_start ? $record->ttb_start->format('d/m/Y H:i') : '-',
-                    'ttb_end' => $record->ttb_end ? $record->ttb_end->format('d/m/Y H:i') : '-',
-                    'current_stage' => $record->current_stage,
-                    'created_at' => $record->created_at->format('d/m/Y H:i'),
-                ];
-            });
-        }
-
-        public function headings(): array
-        {
-            return [
-                'Nama Kendaraan', 'Plat Nomor', 'Keterangan',
-                'Security Mulai', 'Security Selesai',
-                'Bongkar Muat Mulai', 'Bongkar Muat Selesai',
-                'TTB Mulai', 'TTB Selesai',
-                'Status Terakhir', 'Dibuat Tanggal'
-            ];
-        }
-    }
-    */
-
 
     /**
      * 'render()' adalah fungsi yang menampilkan view.
      */
     public function render()
     {
-        // Jika belum login, refresh data live update
-        if (!Auth::check()) {
-            $this->loadData();
-        }
+        $userRecords = collect(); // Buat koleksi kosong
+
+        if (Auth::check()) {
+            // JIKA SUDAH LOGIN
+            $userRole = Auth::user()->role;
+            if ($userRole == 'admin') {
+                // Logika Admin dengan Search dan Paginasi
+                $query = Tracking::query();
+
+                if (!empty($this->search)) {
+                    $query->where(function ($q) {
+                        $q->where('vehicle_name', 'like', '%' . $this->search . '%')
+                          ->orWhere('plate_number', 'like', '%' . $this->search . '%');
+                    });
+                }
+                
+                $userRecords = $query->latest()->paginate($this->perPage);
+
+            } else {
+                // Logika non-admin (tetap sama)
+                $userRecords = Tracking::where('current_stage', '!=', 'completed')
+                                        ->latest()
+                                        ->get();
+            }
+        } 
+        // TIDAK ADA 'else' DI SINI
+        // Halaman login tidak perlu memuat data apa pun
+        // Widget 'LiveUpdateWidget' akan mengurus datanya sendiri
         
-        // Memuat view blade dan layoutnya
-        return view('livewire.tracking-app')->layout('layouts.app');
+        return view('livewire.tracking-app', [
+            'userRecords' => $userRecords,
+        ])->layout('layouts.app');
     }
 }

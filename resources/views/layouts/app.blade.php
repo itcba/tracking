@@ -7,17 +7,8 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
-
-<body class="flex flex-col min-h-screen">
-    
-    <main class="flex-grow">
-        {{ $slot }}
-    </main>
-
-    <footer class="w-full text-center py-4 text-sm text-gray-600 bg-white shadow-inner border-t border-gray-200">
-        © {{ date('Y') }} PT. CBA Chemical Industry. Hak Cipta Dilindungi.
-    </footer>
-
+<body class="h-full">
+    {{ $slot }} 
     @livewireScripts
 </body>
 </html>
