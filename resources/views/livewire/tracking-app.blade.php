@@ -1,4 +1,4 @@
-<div> <!-- Div pembungkus utama untuk mengatasi error "Multiple root elements" -->
+<div class="min-h-full">
 
     {{-- TAMPILAN JIKA SUDAH LOGIN (DASHBOARD) --}}
     @if (Auth::check())
@@ -7,11 +7,11 @@
         <div class="flex flex-col min-h-screen" style="background: #f3f4f6;">
             
             <main class="flex-grow">
-                <!-- Header -->
+                
                 <div style="background: #2563eb; color: white; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                     <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                         <div>
-                            <h1 style="font-size: 24px; font-weight: bold; margin: 0 0 4px 0;">Tracking Bongkar Muat</h1>
+                            <h1 style="font-size: 24px; font-weight: bold; margin: 0 0 4px 0;">Tracking Bongkar</h1>
                             <p style="font-size: 14px; margin: 0; opacity: 0.9;">PT. CBA Chemical Industry</p>
                         </div>
                         <div style="display: flex; align-items: center; gap: 12px;">
@@ -23,7 +23,6 @@
                     </div>
                 </div>
 
-                <!-- Isi Konten Dashboard -->
                 <div style="max-width: 1200px; margin: 0 auto; padding: 16px;">
                     
                     @if ($user->role === 'security')
@@ -33,7 +32,6 @@
                     @endif
                     
                     @if ($user->role === 'admin')
-                        <!-- TAMPILAN TABEL ADMIN -->
                         <div style="margin-bottom: 16px;">
                             <button wire:click="exportExcel" class="btn" style="width: 100%; background: #10b981; color: white; padding: 14px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                                 📥 Export ke Excel (sesuai pencarian)
@@ -67,7 +65,7 @@
                                             <th style="padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: #374151;">Kendaraan</th>
                                             <th style="padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: #374151;">Plat Nomor</th>
                                             <th style="padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: #374151;">Security (Mulai / Selesai)</th>
-                                            <th style="padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: #374151;">Bongkar Muat (Mulai / Selesai)</th>
+                                            <th style="padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: #374151;">Bongkar (Mulai / Selesai)</th>
                                             <th style="padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: #374151;">Officer TTB (Mulai / Selesai)</th>
                                             <th style="padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: #374151;">Status</th>
                                         </tr>
@@ -120,7 +118,6 @@
                         </div>
 
                     @else
-                        <!-- TAMPILAN KARTU UNTUK ROLE LAIN -->
                         <div id="recordsList">
                             @forelse ($userRecords as $record)
                                 @include('livewire.partials.record-card', ['record' => $record, 'currentUserRole' => $user->role])
@@ -135,38 +132,31 @@
                 </div>
             </main>
 
-            <!-- FOOTER UNTUK DASHBOARD -->
-            @include('partials.dashboard-footer')
+            {{-- footer dashboard dibungkus container supaya sejajar --}}
+            <div style="max-width: 1200px; margin: 0 auto; padding: 0 16px 16px;">
+                @include('partials.dashboard-footer')
+            </div>
         </div>
 
     {{-- TAMPILAN JIKA BELUM LOGIN (HALAMAN LOGIN) --}}
     @else
         
-        <!-- Layout Sticky Footer untuk Login -->
         <div class="flex flex-col min-h-screen" style="background: linear-gradient(135deg, #2563eb 0%, #10b981 100%);">
             
-            <main class="flex-grow flex items-center justify-center p-4">
-                
-                <div style="width: 100%; max-width: 480px;">
-                    <!-- Header -->
+            {{-- main: kolom tengah, max-width lebih kecil supaya tidak mepet --}}
+            <main class="flex-grow">
+                <div style="max-width: 420px; margin: 0 auto; padding: 32px 16px 40px;">
+                    
                     <div style="text-align: center; margin-bottom: 32px;">
-                        <h1 style="font-size: 32px; font-weight: bold; color: white; margin: 0 0 8px 0;">Tracking Bongkar Muat</h1>
+                        <h1 style="font-size: 32px; font-weight: bold; color: white; margin: 0 0 8px 0;">Tracking Bongkar</h1>
                         <p style="font-size: 18px; color: rgba(255,255,255,0.9); margin: 0;">PT. CBA Chemical Industry</p>
                     </div>
                     
-                    <!-- ============================================== -->
-                    <!-- == INI PERBAIKANNYA == -->
-                    <!-- ============================================== -->
-                    <!-- 
-                      Blok "Live Update" yang lama sudah dihapus.
-                      Sekarang kita memanggil widget baru secara "lazy".
-                    -->
-                    <div style="margin-bottom: 24px;">
+                    <div style="margin-bottom: 50px;">
                         <livewire:live-update-widget lazy />
                     </div>
                     
-                    <!-- Login Section -->
-                    <div style="background: white; border-radius: 16px; padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                    <div style="background: white; border-radius: 16px; padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); margin-bottom: 24px;">
                         <h2 style="font-size: 24px; font-weight: bold; margin: 0 0 24px 0; color: #1f2937; text-align: center;">Login</h2>
                         <form wire:submit.prevent="login">
                             @if ($loginError)
@@ -177,13 +167,13 @@
                             <div style="margin-bottom: 20px;">
                                 <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px; color: #1f2937;">Pilih User:</label>
                                 <select wire:model="login_user_id" required style="width: 100%; padding: 14px; border: 2px solid #f3f4f6; border-radius: 8px; font-size: 16px; color: #1f2937; background: white;">
-                                    <option value="">-- Pilih Role Anda --</option>
+                                    <option value="">-- Pilih Nama Anda --</option>
                                     @foreach ($allUsers as $user)
                                         <option value="{{ $user->id }}">{{ $user->name }} ({{ ucfirst($user->role) }})</option>
                                     @endforeach
                                 </select>
                             </div>
-                            <div style="margin-bottom: 24px;">
+                            <div style="margin-bottom: 16px;">
                                 <label style="font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px; color: #1f2937;">PIN/Password (4 digit):</label>
                                 <input wire:model="login_pin" type="password" required maxlength="4" pattern="[0-9]{4}" placeholder="Masukkan PIN 4 digit" 
                                        style="width: 100%; padding: 14px; border: 2px solid #f3f4f6; border-radius: 8px; font-size: 16px; color: #1f2937; background: white;">
@@ -196,8 +186,10 @@
                 </div>
             </main>
 
-            <!-- FOOTER UNTUK LOGIN -->
-            @include('partials.login-footer')
+            {{-- footer login dibungkus container dengan lebar sama seperti form --}}
+            <div style="max-width: 420px; margin: 0 auto; padding: 0 16px 16px;">
+                @include('partials.login-footer')
+            </div>
         </div>
     @endif
 
@@ -241,7 +233,7 @@
                                     $labelText = 'Waktu Selesai (Kendaraan Keluar)';
                                 } elseif ($userRole == 'loading') {
                                     $hasStarted = !is_null($editingRecord->loading_start);
-                                    $labelText = $hasStarted ? 'Waktu Selesai Bongkar Muat' : 'Waktu Mulai Bongkar Muat';
+                                    $labelText = $hasStarted ? 'Waktu Selesai Bongkar' : 'Waktu Mulai Bongkar';
                                 } elseif ($userRole == 'ttb') {
                                     $hasStarted = !is_null($editingRecord->ttb_start);
                                     $labelText = $hasStarted ? 'Waktu Selesai TTB' : 'Waktu Mulai TTB';
@@ -268,4 +260,4 @@
         </div>
     @endif
 
-</div> <!-- == AKHIR DARI DIV PEMBUNGKUS TUNGGAL == -->
+</div>

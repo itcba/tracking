@@ -10,14 +10,20 @@ use App\Exports\TrackingsExport;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
-use Livewire\WithPagination; // Penting untuk Paginasi
+use Livewire\WithPagination; // <-- 1. IMPORT FUNGSI PAGINASI
 
 class TrackingApp extends Component
 {
-    use WithPagination; // Mengaktifkan Paginasi
+    use WithPagination; // <-- 2. GUNAKAN FUNGSI PAGINASI
 
     // Tentukan tema paginasi agar sesuai style
     protected $paginationTheme = 'tailwind';
+
+    // Properti untuk 'Live Update'
+    // Logika ini SEKARANG ada di LiveUpdateWidget.php
+    // public Collection $liveRecords;
+    // public $liveLimit = 2;
+    // public $liveTotal = 0;
 
     // Properti untuk Login
     public Collection $allUsers;
@@ -59,7 +65,7 @@ class TrackingApp extends Component
      */
     public function updatingPerPage()
     {
-        $this.resetPage();
+        $this->resetPage();
     }
 
     // --- FUNGSI LOGIN / LOGOUT ---
@@ -205,34 +211,28 @@ class TrackingApp extends Component
      */
     public function render()
     {
-        $userRecords = collect(); // Buat koleksi kosong
+        $userRecords = collect();
 
         if (Auth::check()) {
-            // JIKA SUDAH LOGIN
             $userRole = Auth::user()->role;
             if ($userRole == 'admin') {
-                // Logika Admin dengan Search dan Paginasi
                 $query = Tracking::query();
-
                 if (!empty($this->search)) {
                     $query->where(function ($q) {
                         $q->where('vehicle_name', 'like', '%' . $this->search . '%')
                           ->orWhere('plate_number', 'like', '%' . $this->search . '%');
                     });
                 }
-                
                 $userRecords = $query->latest()->paginate($this->perPage);
 
             } else {
-                // Logika non-admin (tetap sama)
                 $userRecords = Tracking::where('current_stage', '!=', 'completed')
                                         ->latest()
                                         ->get();
             }
         } 
-        // TIDAK ADA 'else' DI SINI
-        // Halaman login tidak perlu memuat data apa pun
-        // Widget 'LiveUpdateWidget' akan mengurus datanya sendiri
+        // Blok 'else' (untuk live update) sudah tidak ada di sini,
+        // karena sudah dipindah ke LiveUpdateWidget.php
         
         return view('livewire.tracking-app', [
             'userRecords' => $userRecords,

@@ -6,8 +6,8 @@
 /* Tempelkan SEMUA CSS dari <style> HTML Anda di sini */
 body {
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+    margin: 0 !important;
+    padding: 0 !important;
     height: 100%;
 }
 html {
