@@ -1,79 +1,84 @@
 <?php
-// app/Livewire/TrackingApp.php
 
 namespace App\Livewire;
 
 use Livewire\Component;
+use Livewire\WithPagination;
 use App\Models\Tracking;
 use App\Models\User;
 use App\Exports\TrackingsExport;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
-use Livewire\WithPagination; // <-- 1. IMPORT FUNGSI PAGINASI
 
 class TrackingApp extends Component
 {
-    use WithPagination; // <-- 2. GUNAKAN FUNGSI PAGINASI
+    use WithPagination;
 
-    // Tentukan tema paginasi agar sesuai style
     protected $paginationTheme = 'tailwind';
 
-    // Properti untuk 'Live Update'
-    // Logika ini SEKARANG ada di LiveUpdateWidget.php
-    // public Collection $liveRecords;
-    // public $liveLimit = 2;
-    // public $liveTotal = 0;
-
-    // Properti untuk Login
+    // --- PROPERTI LOGIN ---
     public Collection $allUsers;
     public $login_user_id = '', $login_pin = '', $loginError = '';
 
-    // Properti untuk Modal
-    public $showModal = false, $modalAction = '', $editingRecord;
-    public $vehicle_name, $plate_number, $description, $start_time;
+    // --- PROPERTI FORM UTAMA ---
+    public $showModal = false;
+    public $modalAction = 'create'; // 'create', 'update', 'public_create'
+    public $editingRecord;
 
-    // Properti untuk Admin Tabel
-    public $search = ''; // Untuk kotak pencarian
-    public $perPage = 10; // Untuk dropdown "entries per page"
+    // Data Kendaraan (Input Security / Admin / Supir)
+    public $vehicle_name, $plate_number, $description;
+    public $driver_name; // Input Nama Supir
+    public $type = ''; 
 
-    // Daftar stages (tetap sama)
+    // Tambahan field template bongkar/muat
+    public $vehicle_kind;        // Jenis Kendaraan
+    public $company_name;        // Nama Instansi
+    public $destination;         // Tujuan
+    public $driver_phone;        // Nomor HP Sopir
+    public $driver_identity;     // Identitas (KTP/SIM)
+    public $sj_number;           // No. Surat Jalan (khusus bongkar)
+    public $item_name;           // Nama Barang (khusus bongkar)
+    public $item_quantity;       // Jumlah Barang (khusus bongkar)
+
+    // Data Transaksi (Input Manual Petugas)
+    public $officer_name;     
+
+    // Distribusi ke supir (Officer TTB)
+    public $distribution_officer;
+
+    // --- DEFINISI STAGES (Agar tidak error di view) ---
     public $stages = [
-        'security' => ['label' => 'Security', 'next' => 'loading'],
-        'loading' => ['label' => 'Bongkar Muat', 'next' => 'ttb'],
-        'ttb' => ['label' => 'Officer TTB', 'next' => 'completed'],
+        'security' => 'Security',
+        'loading'  => 'Bongkar/Muat',
+        'ttb'      => 'Officer TTB'
     ];
 
-    /**
-     * 'mount()' berjalan sekali saat komponen dimuat.
-     */
+    // --- PROPERTI TABEL ADMIN ---
+    public $search = '';
+    public $perPage = 10;
+
     public function mount()
     {
         $this->allUsers = User::orderBy('name')->get();
     }
 
-    /**
-     * Hook ini otomatis berjalan saat $search diubah
-     */
     public function updatingSearch()
     {
         $this->resetPage();
     }
     
-    /**
-     * Hook ini otomatis berjalan saat $perPage diubah
-     */
     public function updatingPerPage()
     {
         $this->resetPage();
     }
 
-    // --- FUNGSI LOGIN / LOGOUT ---
+    // --- AUTHENTICATION ---
 
     public function login()
     {
         $credentials = [
-            'id' => $this->login_user_id,
+            'id'       => $this->login_user_id,
             'password' => $this->login_pin,
         ];
 
@@ -82,7 +87,7 @@ class TrackingApp extends Component
             return redirect('/');
         } else {
             $this->loginError = 'PIN salah! Silakan coba lagi.';
-            $this->login_pin = '';
+            $this->login_pin  = '';
         }
     }
 
@@ -94,23 +99,59 @@ class TrackingApp extends Component
         return redirect('/');
     }
 
-    // --- FUNGSI MODAL ---
+    // --- MODAL LOGIC ---
+
+    public function openPublicInputModal()
+    {
+        $this->resetForm();
+        $this->modalAction = 'public_create'; // Mode input supir
+        $this->showModal   = true;
+    }
 
     public function openNewEntryModal()
     {
-        $this->resetForm();
-        $this->modalAction = 'create';
-        $this->start_time = now()->format('Y-m-d\TH:i');
-        $this->showModal = true;
+        $this->openModal('create');
     }
 
     public function openUpdateModal($recordId)
     {
-        $this->resetForm();
-        $this->editingRecord = Tracking::find($recordId);
-        $this->modalAction = 'update';
-        $this->start_time = now()->format('Y-m-d\TH:i');
-        $this->showModal = true;
+        $this->openModal('update', $recordId);
+    }
+
+    public function openModal($action, $id = null)
+    {
+        $this->resetValidation();
+        $this->modalAction = $action;
+        $this->showModal   = true;
+        
+        // Reset officer_name agar wajib diisi manual setiap update
+        $this->officer_name = ''; 
+
+        if ($action === 'update' && $id) {
+            $this->editingRecord = Tracking::find($id);
+            
+            // Khusus Admin: Load data lama untuk diedit
+            if (Auth::user()->role === 'admin' && $this->editingRecord) {
+                $this->vehicle_name        = $this->editingRecord->vehicle_name;
+                $this->company_name        = $this->editingRecord->company_name;
+                $this->plate_number        = $this->editingRecord->plate_number;
+                $this->vehicle_kind        = $this->editingRecord->vehicle_kind;
+                $this->destination         = $this->editingRecord->destination;
+                $this->description         = $this->editingRecord->description;
+                $this->type                = $this->editingRecord->type;
+                $this->driver_name         = $this->editingRecord->driver_name;
+                $this->driver_phone        = $this->editingRecord->driver_phone;
+                $this->driver_identity     = $this->editingRecord->driver_identity;
+                $this->sj_number           = $this->editingRecord->sj_number;
+                $this->item_name           = $this->editingRecord->item_name;
+                $this->item_quantity       = $this->editingRecord->item_quantity;
+                $this->distribution_officer= $this->editingRecord->distribution_officer;
+            }
+        } else {
+            // Reset form untuk input baru
+            $this->resetForm();
+            $this->type = 'bongkar'; 
+        }
     }
 
     public function closeModal()
@@ -121,121 +162,297 @@ class TrackingApp extends Component
 
     public function resetForm()
     {
-        $this->vehicle_name = '';
-        $this->plate_number = '';
-        $this->description = '';
-        $this->start_time = '';
-        $this->editingRecord = null;
+        $this->reset([
+            'vehicle_name',
+            'company_name',
+            'plate_number',
+            'vehicle_kind',
+            'destination',
+            'description',
+            'type',
+            'officer_name',
+            'driver_name',
+            'driver_phone',
+            'driver_identity',
+            'editingRecord',
+            'sj_number',
+            'item_name',
+            'item_quantity',
+            'distribution_officer',
+        ]);
     }
 
-    // --- FUNGSI SIMPAN & UPDATE DATA ---
+    // --- CORE LOGIC (HANDLE SUBMIT) ---
 
     public function handleSubmit()
     {
-        if ($this->modalAction === 'create') {
-            $this->createNewRecord();
-        } else {
-            $this->updateRecord();
+        $now = now();
+
+        // 1. LOGIKA INPUT PUBLIK (SUPIR TANPA LOGIN)
+        if ($this->modalAction === 'public_create') {
+            $this->validate([
+                'vehicle_name' => 'required',
+                'company_name' => 'required',
+                'plate_number' => 'required',
+                'driver_name'  => 'required',
+                'type'         => 'required',
+            ]);
+
+            Tracking::create([
+                'vehicle_name'        => $this->vehicle_name,
+                'company_name'        => $this->company_name,
+                'plate_number'        => $this->plate_number,
+                'vehicle_kind'        => $this->vehicle_kind,
+                'destination'         => $this->destination,
+                'driver_name'         => $this->driver_name,
+                'driver_phone'        => $this->driver_phone,
+                'driver_identity'     => $this->driver_identity,
+                'description'         => $this->description,
+                'type'                => $this->type,
+                'sj_number'           => $this->sj_number,
+                'item_name'           => $this->item_name,
+                'item_quantity'       => $this->item_quantity,
+                'security_start'      => $now,
+                'security_in_officer' => 'Input Mandiri (Supir)',
+                'current_stage'       => 'security_in',
+            ]);
+
+            $this->closeModal();
+            session()->flash('message', 'Data berhasil disimpan! Silakan lapor ke Security.');
+            return;
         }
-    }
 
-    public function createNewRecord()
-    {
-        if (Auth::user()->role != 'security') return;
+        // Cek Login untuk aksi selanjutnya
+        if (!Auth::check()) return;
+        $user = Auth::user();
 
-        $this->validate([
-            'vehicle_name' => 'required|string|max:255',
-            'plate_number' => 'required|string|max:255',
-            'description' => 'required|string',
-            'start_time' => 'required|date',
-        ]);
+        // 2. VALIDASI INPUT PETUGAS (Wajib kecuali Admin Edit Master)
+        if ($user->role !== 'admin') {
+            $this->validate([
+                'officer_name' => 'required|string|min:3',
+            ], ['officer_name.required' => 'Nama Petugas wajib diisi manual!']);
+        }
 
-        Tracking::create([
-            'vehicle_name' => $this->vehicle_name,
-            'plate_number' => $this->plate_number,
-            'description' => $this->description,
-            'security_start' => $this->start_time,
-            'current_stage' => 'active',
-        ]);
-
-        $this->closeModal();
-    }
-
-    public function updateRecord()
-    {
-        $record = Tracking::find($this->editingRecord->id);
-        if (!$record || $record->current_stage == 'completed') {
+        // 3. LOGIKA ADMIN (Edit Data Master)
+        if ($user->role === 'admin' && $this->editingRecord) {
+            $this->validate([
+                'vehicle_name' => 'required',
+                'company_name' => 'required',
+                'plate_number' => 'required',
+                'type'         => 'required',
+            ]);
+            
+            $this->editingRecord->update([
+                'vehicle_name'        => $this->vehicle_name,
+                'company_name'        => $this->company_name,
+                'plate_number'        => $this->plate_number,
+                'vehicle_kind'        => $this->vehicle_kind,
+                'destination'         => $this->destination,
+                'driver_name'         => $this->driver_name,
+                'driver_phone'        => $this->driver_phone,
+                'driver_identity'     => $this->driver_identity,
+                'type'                => $this->type,
+                'description'         => $this->description,
+                'sj_number'           => $this->sj_number,
+                'item_name'           => $this->item_name,
+                'item_quantity'       => $this->item_quantity,
+                'distribution_officer'=> $this->distribution_officer,
+            ]);
+            
             $this->closeModal();
             return;
         }
 
-        $userRole = Auth::user()->role;
+        // 4. LOGIKA SECURITY (INPUT BARU MANUAL)
+        if ($this->modalAction === 'create' && $user->role === 'security') {
+            $this->validate([
+                'vehicle_name' => 'required',
+                'company_name' => 'required',
+                'plate_number' => 'required',
+                'type'         => 'required',
+            ]);
 
-        switch ($userRole) {
-            case 'security':
-                if (!is_null($record->loading_end) && !is_null($record->ttb_end)) {
-                    $record->security_end = $this->start_time;
-                    $record->current_stage = 'completed';
-                }
-                break;
-            case 'loading':
-                if (is_null($record->loading_start)) {
-                    $record->loading_start = $this->start_time;
+            Tracking::create([
+                'vehicle_name'        => $this->vehicle_name,
+                'company_name'        => $this->company_name,
+                'plate_number'        => $this->plate_number,
+                'vehicle_kind'        => $this->vehicle_kind,
+                'destination'         => $this->destination,
+                'driver_name'         => $this->driver_name,
+                'driver_phone'        => $this->driver_phone,
+                'driver_identity'     => $this->driver_identity,
+                'description'         => $this->description,
+                'type'                => $this->type,
+                'sj_number'           => $this->sj_number,
+                'item_name'           => $this->item_name,
+                'item_quantity'       => $this->item_quantity,
+                'security_start'      => $now,
+                'security_in_officer' => $this->officer_name,
+                'current_stage'       => 'security_in',
+            ]);
+
+        } 
+        
+        // 5. LOGIKA UPDATE BERURUTAN (ROLE PETUGAS)
+        elseif ($this->modalAction === 'update') {
+            $record = $this->editingRecord;
+
+            // A. LOADING (Bongkar/Muat)
+            if ($user->role === 'loading') {
+                if ($record->current_stage == 'security_in') {
+                    // Mulai Bongkar/Muat
+                    $record->update([
+                        'loading_start'        => $now,
+                        'loading_start_officer'=> $this->officer_name,
+                        'current_stage'        => 'loading_started',
+                    ]);
+                } elseif ($record->current_stage == 'loading_started') {
+                    // Selesai Bongkar/Muat
+                    $record->update([
+                        'loading_end'          => $now,
+                        'loading_end_officer'  => $this->officer_name,
+                        'current_stage'        => 'loading_ended',
+                    ]);
                 } else {
-                    $record->loading_end = $this->start_time;
+                    session()->flash('error', 'Urutan salah! Tunggu Security Masuk atau proses sudah selesai.');
+                    return;
                 }
-                break;
-            case 'ttb':
-                if (is_null($record->ttb_start)) {
-                    $record->ttb_start = $this->start_time;
+            }
+
+            // B. OFFICER TTB + DISTRIBUSI
+            elseif ($user->role === 'ttb') {
+                if ($record->current_stage == 'loading_ended') {
+                    // 1) Mulai TTB
+                    $record->update([
+                        'ttb_start'        => $now,
+                        'ttb_start_officer'=> $this->officer_name,
+                        'current_stage'    => 'ttb_started',
+                    ]);
+                } elseif ($record->current_stage == 'ttb_started') {
+                    // 2) Selesai TTB
+                    $record->update([
+                        'ttb_end'          => $now,
+                        'ttb_end_officer'  => $this->officer_name,
+                        'current_stage'    => 'ttb_ended',
+                    ]);
+                } elseif ($record->current_stage == 'ttb_ended') {
+                    // 3) Distribusi ke Supir
+                    $record->update([
+                        'distribution_officer' => $this->officer_name,
+                        'distribution_at'    => $now,
+                        'current_stage'        => 'ttb_distributed',
+                    ]);
                 } else {
-                    $record->ttb_end = $this->start_time;
+                    session()->flash('error', 'Urutan salah! Tunggu proses Bongkar/Muat selesai.');
+                    return;
                 }
-                break;
+            }
+
+            // C. SECURITY (VERIFIKASI MASUK & KELUAR)
+            elseif ($user->role === 'security') {
+
+                // Verifikasi masuk untuk data input mandiri supir
+                if (
+                    $record->current_stage == 'security_in' &&
+                    $record->security_in_officer === 'Input Mandiri (Supir)'
+                ) {
+                    $record->update([
+                        'security_start'      => $now,
+                        'security_in_officer' => $this->officer_name,
+                    ]);
+                }
+                // Proses keluar setelah distribusi selesai
+                elseif ($record->current_stage == 'ttb_distributed') {
+                    $record->update([
+                        'security_end'        => $now,
+                        'security_out_officer'=> $this->officer_name,
+                        'current_stage'       => 'completed',
+                    ]);
+                } else {
+                    session()->flash('error', 'Proses belum selesai sepenuhnya (Tunggu distribusi ke supir selesai).');
+                    return;
+                }
+            }
         }
 
-        $record->save();
         $this->closeModal();
     }
 
-    // --- FUNGSI EXPORT ---
+    // --- ADMIN ACTIONS (CANCEL & DELETE) ---
+
+    public function cancelTracking($id)
+    {
+        if (Auth::user()->role === 'admin') {
+            Tracking::where('id', $id)->update(['current_stage' => 'canceled']);
+            $this->closeModal();
+        }
+    }
+
+    public function deleteTracking($id)
+    {
+        if (Auth::user()->role === 'admin') {
+            $record = Tracking::find($id);
+            if ($record) {
+                $record->delete();
+                session()->flash('message', 'Data berhasil dihapus permanen.');
+            }
+        }
+    }
 
     public function exportExcel()
     {
         if (Auth::user()->role != 'admin') return;
-        return Excel::download(new TrackingsExport($this->search), 'Laporan_Bongkar_Muat_'.now()->format('Ymd').'.xlsx');
+        return Excel::download(
+            new TrackingsExport($this->search),
+            'Laporan_Bongkar_Muat_'.now()->format('Ymd').'.xlsx'
+        );
     }
 
-    /**
-     * 'render()' adalah fungsi yang menampilkan view.
-     */
+    public $start_date, $end_date;
+
+    // --- RENDER ---
+
     public function render()
     {
         $userRecords = collect();
 
         if (Auth::check()) {
             $userRole = Auth::user()->role;
+            
             if ($userRole == 'admin') {
+                // Admin lihat semua + Pagination + Search
                 $query = Tracking::query();
+
+                if ($this->start_date) {
+                    $query->whereDate('security_start', '>=', $this->start_date);
+                }
+
+                if ($this->end_date) {
+                    $query->whereDate('security_start', '<=', $this->end_date);
+                }
+
                 if (!empty($this->search)) {
                     $query->where(function ($q) {
                         $q->where('vehicle_name', 'like', '%' . $this->search . '%')
-                          ->orWhere('plate_number', 'like', '%' . $this->search . '%');
+                          ->orWhere('plate_number', 'like', '%' . $this->search . '%')
+                          ->orWhere('driver_name', 'like', '%' . $this->search . '%')
+                          ->orWhere('type', 'like', '%' . $this->search . '%');
                     });
                 }
                 $userRecords = $query->latest()->paginate($this->perPage);
 
             } else {
+                // User lain lihat list card aktif
                 $userRecords = Tracking::where('current_stage', '!=', 'completed')
-                                        ->latest()
-                                        ->get();
+                                       ->where('current_stage', '!=', 'canceled')
+                                       ->latest()
+                                       ->get();
             }
         } 
-        // Blok 'else' (untuk live update) sudah tidak ada di sini,
-        // karena sudah dipindah ke LiveUpdateWidget.php
         
         return view('livewire.tracking-app', [
             'userRecords' => $userRecords,
+            'stages'      => $this->stages,
         ])->layout('layouts.app');
     }
 }

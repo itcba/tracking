@@ -10,21 +10,45 @@ class Tracking extends Model
     use HasFactory;
 
     /**
-     * TAMBAHKAN BARIS INI
-     * Ini mengizinkan semua bidang untuk diisi menggunakan ::create()
+     * Izinkan seluruh field diisi secara mass-assignment
+     * (lebih fleksibel untuk Livewire).
      */
     protected $guarded = [];
 
     /**
-     * $casts ini juga penting untuk mengubah teks tanggal
-     * menjadi objek tanggal (sudah ada di panduan sebelumnya)
+     * Cast automatic untuk semua field datetime.
      */
     protected $casts = [
         'security_start' => 'datetime',
-        'security_end' => 'datetime',
-        'loading_start' => 'datetime',
-        'loading_end' => 'datetime',
-        'ttb_start' => 'datetime',
-        'ttb_end' => 'datetime',
+        'security_end'   => 'datetime',
+
+        'loading_start'  => 'datetime',
+        'loading_end'    => 'datetime',
+
+        'ttb_start'      => 'datetime',
+        'ttb_end'        => 'datetime',
+
+        'created_at'     => 'datetime',
+        'updated_at'     => 'datetime',
+
+        'distribution_at'=> 'datetime',
     ];
+
+    /**
+     * Helper opsional untuk pengecekan stage di Blade.
+     */
+    public function isCompleted()
+    {
+        return $this->current_stage === 'completed';
+    }
+
+    public function isCanceled()
+    {
+        return $this->current_stage === 'canceled';
+    }
+
+    public function isWaiting()
+    {
+        return !in_array($this->current_stage, ['completed', 'canceled']);
+    }
 }

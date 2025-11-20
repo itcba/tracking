@@ -16,3 +16,4 @@ use Illuminate\Support\Facades\Route;
 
 // Semua permintaan ke '/' akan ditangani oleh komponen TrackingApp
 Route::get('/', TrackingApp::class);
+Route::get('/input-kendaraan', \App\Livewire\PublicTruckInput::class)->name('public.input');

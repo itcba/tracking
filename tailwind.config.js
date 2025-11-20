@@ -1,12 +1,13 @@
 /** @type {import('tailwindcss').Config} */
-export default {
-    content: [
-        "./resources/**/*.blade.php",
-        "./resources/**/*.js",
-        "./resources/views/vendor/pagination/*.blade.php"
-    ],
-    theme: {
-        extend: {},
-    },
-    plugins: [],
+module.exports = {
+  content: [
+    "./resources/**/*.blade.php",
+    "./resources/**/*.js",
+    "./resources/**/*.vue",
+    "./storage/framework/views/*.php", // Jika menggunakan Livewire cache
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
 }

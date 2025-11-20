@@ -6,86 +6,174 @@ namespace App\Exports;
 use App\Models\Tracking;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\Exportable; // Pastikan ini ada
+use Maatwebsite\Excel\Concerns\Exportable;
 
 class TrackingsExport implements FromCollection, WithHeadings
 {
-    use Exportable; // Pastikan ini ada
+    use Exportable;
 
-    // 1. Tambahkan properti untuk menampung search
+    // untuk filter search dari Livewire
     protected $search;
 
-    // 2. Tambahkan constructor untuk MENERIMA $search dari controller
     public function __construct(string $search = null)
     {
         $this->search = $search;
     }
 
     /**
-    * @return \Illuminate\Support\Collection
-    */
+     * Data yang diexport
+     */
+
+    public $start_date, $end_date;
+
     public function collection()
     {
-        // 3. Mulai query, jangan langsung ::all()
         $query = Tracking::query();
 
-        // 4. LOGIKA FILTER: Jika $this->search TIDAK kosong, filter datanya
+        if ($this->start_date) {
+                    $query->whereDate('security_start', '>=', $this->start_date);
+                }
+
+                if ($this->end_date) {
+                    $query->whereDate('security_start', '<=', $this->end_date);
+                }
+
+        // filter search (kalau ada)
         if (!empty($this->search)) {
             $query->where(function ($q) {
                 $q->where('vehicle_name', 'like', '%' . $this->search . '%')
-                  ->orWhere('plate_number', 'like', '%' . $this->search . '%');
+                  ->orWhere('plate_number', 'like', '%' . $this->search . '%')
+                  ->orWhere('driver_name', 'like', '%' . $this->search . '%')
+                  ->orWhere('type', 'like', '%' . $this->search . '%');
             });
         }
-        
-        // 5. Ambil data yang sudah difilter (atau semua data jika search kosong)
+
         $data = $query->latest()->get();
 
-        // 6. Ubah (map) data untuk ditampilkan
         return $data->map(function ($record) {
-            
-            $status = $record->current_stage;
-            if ($status == 'completed') {
-                $status = 'Selesai';
-            } elseif (isset($this->stages[$status])) {
-                $status = $this->stages[$status]['label'];
-            } else {
-                $status = 'Sedang Berlangsung'; // Default untuk 'active'
-            }
-
             return [
-                'vehicle_name'   => $record->vehicle_name,
-                'plate_number'   => $record->plate_number,
-                'description'    => $record->description,
-                'security_start' => $record->security_start ? $record->security_start->format('d/m/Y H:i') : '-',
-                'security_end'   => $record->security_end ? $record->security_end->format('d/m/Y H:i') : '-',
-                'loading_start'  => $record->loading_start ? $record->loading_start->format('d/m/Y H:i') : '-',
-                'loading_end'    => $record->loading_end ? $record->loading_end->format('d/m/Y H:i') : '-',
-                'ttb_start'      => $record->ttb_start ? $record->ttb_start->format('d/m/Y H:i') : '-',
-                'ttb_end'        => $record->ttb_end ? $record->ttb_end->format('d/m/Y H:i') : '-',
-                'current_stage'  => $status,
-                'created_at'     => $record->created_at->format('d/m/Y H:i'),
+                // IDENTITAS KENDARAAN & SUPIR
+                'vehicle_name'        => $record->vehicle_name,
+                'company_name'        => $record->company_name,
+                'plate_number'        => $record->plate_number,
+                'vehicle_kind'        => $record->vehicle_kind,
+                'destination'         => $record->destination,
+                'type'                => $record->type ? strtoupper($record->type) : null, // BONGKAR / MUAT
+
+                'driver_name'         => $record->driver_name,
+                'driver_phone'        => $record->driver_phone,
+                'driver_identity'     => $record->driver_identity,
+
+                // SECURITY MASUK / KELUAR
+                'security_start'      => $this->formatDateTime($record->security_start),
+                'security_in_officer' => $record->security_in_officer,
+                'security_end'        => $this->formatDateTime($record->security_end),
+                'security_out_officer'=> $record->security_out_officer,
+
+                // BONGKAR / MUAT
+                'loading_start'       => $this->formatDateTime($record->loading_start),
+                'loading_start_officer'=> $record->loading_start_officer,
+                'loading_end'         => $this->formatDateTime($record->loading_end),
+                'loading_end_officer' => $record->loading_end_officer,
+
+                // OFFICER TTB
+                'ttb_start'           => $this->formatDateTime($record->ttb_start),
+                'ttb_start_officer'   => $record->ttb_start_officer,
+                'ttb_end'             => $this->formatDateTime($record->ttb_end),
+                'ttb_end_officer'     => $record->ttb_end_officer,
+
+                // DISTRIBUSI KE SUPIR
+                'distribution_at'     => $this->formatDateTime($record->distribution_at),
+                'distribution_officer'=> $record->distribution_officer,
+
+                // KHUSUS PROSES BONGKAR
+                'sj_number'           => $record->sj_number,
+                'item_name'           => $record->item_name,
+                'item_quantity'       => $record->item_quantity,
+
+                // LAIN2
+                'description'         => $record->description,
+                'status'              => $this->statusLabel($record->current_stage),
+                'created_at'          => $this->formatDateTime($record->created_at),
             ];
         });
     }
 
     /**
-     * Fungsi Headings
+     * Judul kolom di Excel
      */
     public function headings(): array
     {
         return [
-            'Nama Kendaraan', 'Plat Nomor', 'Keterangan',
-            'Security Mulai', 'Security Selesai',
-            'Bongkar Muat Mulai', 'Bongkar Muat Selesai',
-            'Officer TTB Mulai', 'Officer TTB Selesai',
-            'Status Terakhir', 'Tanggal Dibuat'
+            // IDENTITAS KENDARAAN & SUPIR
+            'Nama Kendaraan / Vendor',
+            'Nama Instansi / Perusahaan',
+            'Plat Nomor',
+            'Jenis Kendaraan',
+            'Tujuan',
+            'Jenis Kegiatan (B/M)',
+
+            'Nama Supir',
+            'Nomor HP Supir',
+            'Identitas Supir (KTP/SIM)',
+
+            // SECURITY
+            'Security Masuk - Waktu',
+            'Security Masuk - Nama Petugas',
+            'Security Keluar - Waktu',
+            'Security Keluar - Nama Petugas',
+
+            // BONGKAR / MUAT
+            'Bongkar/Muat Mulai - Waktu',
+            'Bongkar/Muat Mulai - Nama Petugas',
+            'Bongkar/Muat Selesai - Waktu',
+            'Bongkar/Muat Selesai - Nama Petugas',
+
+            // OFFICER TTB
+            'TTB Mulai - Waktu',
+            'TTB Mulai - Nama Officer',
+            'TTB Selesai - Waktu',
+            'TTB Selesai - Nama Officer',
+
+            // DISTRIBUSI
+            'Distribusi ke Supir - Waktu',
+            'Distribusi ke Supir - Nama Petugas',
+
+            // DATA BONGKAR
+            'No. Surat Jalan',
+            'Nama Barang',
+            'Jumlah Barang',
+
+            // LAIN2
+            'Keterangan',
+            'Status Terakhir',
+            'Tanggal Dibuat (Record)',
         ];
     }
 
-    // Definisikan stages di sini agar bisa diakses oleh 'collection'
-    public $stages = [
-        'security' => ['label' => 'Security'],
-        'loading'  => ['label' => 'Bongkar Muat'],
-        'ttb'      => ['label' => 'Officer TTB'],
-    ];
+    /**
+     * Helper format tanggal
+     */
+    protected function formatDateTime($value): ?string
+    {
+        return $value ? $value->format('d/m/Y H:i') : null;
+    }
+
+    /**
+     * Helper label status
+     */
+    protected function statusLabel(?string $stage): string
+    {
+        return match ($stage) {
+            'security_in'      => 'Security Masuk',
+            'loading_started'  => 'Proses Bongkar/Muat',
+            'loading_ended'    => 'Selesai Bongkar/Muat',
+            'ttb_started'      => 'Proses TTB',
+            'ttb_ended'        => 'Selesai TTB',
+            'ttb_distributed'  => 'Distribusi ke Supir',
+            'completed'        => 'Selesai',
+            'canceled'         => 'Dibatalkan',
+            default            => 'Sedang Berlangsung',
+        };
+    }
 }

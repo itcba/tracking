@@ -1,90 +1,244 @@
-@php
-    $isCompleted = $record->current_stage == 'completed';
-    $userRole = $currentUserRole;
-
-    // Logika Badge Status
-    $badgeLabel = $isCompleted ? '✓ Selesai' : 'Sedang Berlangsung';
-    $badgeColor = $isCompleted ? '#10b981' : '#f59e0b';
-
-    // Logika Tombol Update
-    $canUpdate = false;
-    $buttonText = 'Update Status';
-
-    if (!$isCompleted) { // Tidak bisa update jika sudah 'completed'
-        
-        // =======================================================
-        // ==> INI ADALAH LOGIKA BARU UNTUK SECURITY <==
-        // =======================================================
-        if ($userRole == 'security') {
-            // Security HANYA bisa update jika:
-            // 1. Pekerja Bongkar Muat SUDAH selesai (loading_end tidak kosong)
-            // 2. Officer TTB SUDAH selesai (ttb_end tidak kosong)
-            
-            $canUpdate = !is_null($record->loading_end) && !is_null($record->ttb_end);
-            $buttonText = 'Update (Kendaraan Keluar)';
-        
-        } elseif ($userRole == 'loading') {
-            // Loading bisa update sampai mereka selesai
-            $canUpdate = is_null($record->loading_end);
-            $buttonText = is_null($record->loading_start) ? 'Mulai Bongkar Muat' : 'Selesai Bongkar Muat';
-        
-        } elseif ($userRole == 'ttb') {
-            // TTB bisa update sampai mereka selesai
-            $canUpdate = is_null($record->ttb_end);
-            $buttonText = is_null($record->ttb_start) ? 'Mulai TTB' : 'Selesai TTB';
-        }
-    }
-@endphp
-
-<div class="card" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mb-4 transition hover:shadow-md">
+    
+    {{-- HEADER: Judul & Status --}}
+    <div class="flex justify-between items-start mb-6 pb-4 border-b border-gray-100">
         <div>
-            <h3 style="font-size: 18px; font-weight: bold; margin: 0 0 4px 0;">{{ $record->vehicle_name }}</h3>
-            <p style="font-size: 14px; color: #6b7280; margin: 0;">{{ $record->plate_number }}</p>
+            <h3 class="text-lg font-bold text-gray-800 leading-tight">{{ $record->company_name ?? $record->vehicle_name }}</h3>
+            <div class="flex items-center gap-2 mt-1.5">
+                <span class="bg-gray-100 text-gray-600 text-xs font-mono px-2 py-1 rounded border border-gray-200">
+                    {{ $record->plate_number }}
+                </span>
+                <span class="text-xs font-bold px-2 py-1 rounded border {{ $record->type == 'bongkar' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-blue-50 text-blue-700 border-blue-200' }}">
+                    {{ strtoupper($record->type) }}
+                </span>
+            </div>
         </div>
-        <div class="stage-badge" style="background: {{ $badgeColor }}; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap;">
-            {{ $badgeLabel }}
+        
+        {{-- Badge Status --}}
+        <div>
+            @if($record->current_stage == 'completed')
+                <span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-200">
+                    ✓ Selesai
+                </span>
+            @elseif($record->current_stage == 'canceled')
+                <span class="inline-flex items-center gap-1 bg-red-100 text-red-700 text-xs font-bold px-3 py-1.5 rounded-full border border-red-200">
+                    ✕ Batal
+                </span>
+            @else
+                <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-full border border-amber-200">
+                    ⟳ Proses
+                </span>
+            @endif
         </div>
-    </div>
-    <div style="background: #f3f4f6; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-        <p style="font-size: 14px; color: #1f2937; margin: 0; line-height: 1.5;">{{ $record->description }}</p>
     </div>
 
-    <div style="position: relative; padding-left: 24px;">
-        @foreach (['security', 'loading', 'ttb'] as $index => $stageKey)
-            @php
-                $stage = $stages[$stageKey];
-                $start = $record->{$stageKey.'_start'};
-                $end = $record->{$stageKey.'_end'};
-                $isStageCompleted = $start && $end;
-                $isActive = !$isStageCompleted && $start;
-                $dotColor = $isStageCompleted ? '#10b981' : ($isActive ? '#2563eb' : '#d1d5db');
-                $showLine = $index < 2;
-            @endphp
-            <div style="position: relative; margin-bottom: {{ $showLine ? '24px' : '0' }};">
-                <div class="timeline-dot" style="background: {{ $dotColor }};"></div>
-                @if ($showLine)
-                    <div class="timeline-line" style="background: {{ $isStageCompleted ? '#10b981' : '#e5e7eb' }};"></div>
-                @endif
+    {{-- BODY: Timeline Vertical --}}
+    <div class="relative pl-4 space-y-0">
+        
+        {{-- 1. SECURITY MASUK --}}
+        @php 
+            $hasSecurityIn = !is_null($record->security_start) || $record->security_in_officer !== null;
+            $isSecurityCurrent = $record->current_stage == 'security_in';
+        @endphp
+        <div class="relative pb-6 border-l-2 {{ $hasSecurityIn ? 'border-emerald-400' : 'border-gray-200' }} pl-6 last:border-0">
+            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 
+                {{ $hasSecurityIn ? 'bg-emerald-500 border-emerald-100' : ($isSecurityCurrent ? 'bg-blue-500 border-blue-100' : 'bg-gray-200 border-white') }}"></div>
+            
+            <div class="flex justify-between items-start -mt-1">
                 <div>
-                    <p style="font-size: 14px; font-weight: 600; margin: 0 0 4px 0;">{{ $stage['label'] }}</p>
-                    @if ($start)
-                        <p style="font-size: 12px; color: #6b7280; margin: 0;">Mulai: {{ $start->format('d/m/Y H:i') }}</p>
-                    @endif
-                    @if ($end)
-                        <p style="font-size: 12px; color: #6b7280; margin: 0;">Selesai: {{ $end->format('d/m/Y H:i') }}</p>
-                    @endif
-                    @if (!$start && !$end)
-                        <p style="font-size: 12px; color: #9ca3af; margin: 0;">Belum dimulai</p>
-                    @endif
+                    <h4 class="text-sm font-bold {{ $hasSecurityIn ? 'text-gray-800' : 'text-gray-400' }}">Security Masuk</h4>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        @if($record->security_in_officer) 👮 {{ $record->security_in_officer }} @else - @endif
+                    </p>
+                </div>
+                <div class="text-right text-xs font-mono">
+                    <div class="{{ $record->security_start ? 'text-gray-700' : 'text-gray-300' }}">
+                        {{ $record->security_start ? $record->security_start->format('d/m H:i') : '--:--' }}
+                    </div>
                 </div>
             </div>
-        @endforeach
+        </div>
+
+        {{-- 2. BONGKAR / MUAT --}}
+        @php 
+            $hasLoadingStart = !is_null($record->loading_start);
+            $hasLoadingEnd   = !is_null($record->loading_end);
+            $isLoadingCurrent = in_array($record->current_stage, ['loading_started', 'loading_ended']);
+        @endphp
+        <div class="relative pb-6 border-l-2 {{ $hasLoadingEnd ? 'border-emerald-400' : ($hasLoadingStart ? 'border-emerald-400' : 'border-gray-200') }} pl-6">
+            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 
+                {{ $hasLoadingEnd ? 'bg-emerald-500 border-emerald-100' : ($isLoadingCurrent ? 'bg-blue-500 border-blue-100' : ($hasLoadingStart ? 'bg-emerald-500 border-emerald-100' : 'bg-gray-200 border-white')) }}"></div>
+            
+            <div class="flex justify-between items-start -mt-1">
+                <div>
+                    <h4 class="text-sm font-bold {{ $hasLoadingStart ? 'text-gray-800' : 'text-gray-400' }}">Bongkar / Muat</h4>
+                    <div class="text-xs text-gray-500 mt-1 space-y-1">
+                        <div>Mulai: @if($record->loading_start_officer) 👷 {{ $record->loading_start_officer }} @else - @endif</div>
+                        <div>Selesai: @if($record->loading_end_officer) 🏁 {{ $record->loading_end_officer }} @else - @endif</div>
+                    </div>
+                </div>
+                <div class="text-right space-y-1 text-xs font-mono">
+                    <div class="{{ $hasLoadingStart ? 'text-gray-700' : 'text-gray-300' }}">
+                        M: {{ $record->loading_start ? $record->loading_start->format('d/m H:i') : '--:--' }}
+                    </div>
+                    <div class="{{ $hasLoadingEnd ? 'text-gray-700' : 'text-gray-300' }}">
+                        S: {{ $record->loading_end ? $record->loading_end->format('d/m H:i') : '--:--' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- 3. OFFICER TTB & DISTRIBUSI --}}
+        @php 
+            $hasTtbStart  = !is_null($record->ttb_start);
+            $hasTtbEnd    = !is_null($record->ttb_end);
+            $hasDistrib   = !is_null($record->distribution_at);
+            $isTtbCurrent = in_array($record->current_stage, ['ttb_started', 'ttb_ended', 'ttb_distributed']);
+        @endphp
+        <div class="relative pb-6 border-l-2 
+            {{ $hasDistrib ? 'border-emerald-400' : ($hasTtbEnd ? 'border-emerald-400' : ($hasTtbStart ? 'border-emerald-400' : 'border-gray-200')) }} pl-6">
+            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 
+                {{ $hasDistrib || $hasTtbEnd ? 'bg-emerald-500 border-emerald-100' : ($isTtbCurrent ? 'bg-yellow-400 border-yellow-100' : 'bg-gray-200 border-white') }}"></div>
+            
+            <div class="flex justify-between items-start -mt-1">
+                <div>
+                    <h4 class="text-sm font-bold {{ $hasTtbStart ? 'text-gray-800' : 'text-gray-400' }}">Officer TTB & Distribusi</h4>
+                    <div class="text-xs text-gray-500 mt-1 space-y-1">
+                        <div>Mulai: @if($record->ttb_start_officer) 🧾 {{ $record->ttb_start_officer }} @else - @endif</div>
+                        <div>Selesai: @if($record->ttb_end_officer) 🏁 {{ $record->ttb_end_officer }} @else - @endif</div>
+                        <div>Distribusi ke Supir: 
+                            @if($record->distribution_officer) 🚚 {{ $record->distribution_officer }} 
+                            @else - 
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <div class="text-right space-y-1 text-xs font-mono">
+                    <div class="{{ $hasTtbStart ? 'text-gray-700' : 'text-gray-300' }}">
+                        M: {{ $record->ttb_start ? $record->ttb_start->format('d/m H:i') : '--:--' }}
+                    </div>
+                    <div class="{{ $hasTtbEnd ? 'text-gray-700' : 'text-gray-300' }}">
+                        S: {{ $record->ttb_end ? $record->ttb_end->format('d/m H:i') : '--:--' }}
+                    </div>
+                    <div class="{{ $hasDistrib ? 'text-gray-700' : 'text-gray-300' }}">
+                        D: {{ $record->distribution_at ? $record->distribution_at->format('d/m H:i') : '--:--' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- 4. SECURITY KELUAR --}}
+        @php 
+            $hasSecurityOut = !is_null($record->security_end);
+        @endphp
+        <div class="relative pl-6">
+            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 {{ $hasSecurityOut ? 'bg-emerald-500 border-emerald-100' : 'bg-gray-200 border-white' }}"></div>
+            
+            <div class="flex justify-between items-start -mt-1">
+                <div>
+                    <h4 class="text-sm font-bold {{ $hasSecurityOut ? 'text-gray-800' : 'text-gray-400' }}">Security Keluar</h4>
+                    <p class="text-xs text-gray-500 mt-0.5">
+                        @if($record->security_out_officer) 👮 {{ $record->security_out_officer }} @else - @endif
+                    </p>
+                </div>
+                <div class="text-right text-xs font-mono">
+                    <span class="{{ $hasSecurityOut ? 'text-gray-700' : 'text-gray-300' }}">
+                        {{ $record->security_end ? $record->security_end->format('d/m H:i') : '--:--' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    @if ($canUpdate)
-        <button wire:click="openUpdateModal({{ $record->id }})" class="btn" style="width: 100%; background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px;">
-            {{ $buttonText }}
-        </button>
+    {{-- FOOTER: Tombol Aksi --}}
+    @if($record->current_stage != 'completed' && $record->current_stage != 'canceled')
+        
+        @php
+            $showButton = false;
+            $btnText    = 'Update Status';
+            $btnColor   = 'bg-blue-600 hover:bg-blue-700';
+
+            // ADMIN: selalu boleh edit
+            if ($currentUserRole == 'admin') {
+                $showButton = true;
+                $btnColor   = 'bg-gray-800 hover:bg-gray-900';
+            } 
+            // SECURITY
+            elseif ($currentUserRole == 'security') {
+
+                // 1) Verifikasi MASUK untuk data input mandiri supir
+                if ($record->current_stage == 'security_in' && $record->security_in_officer === 'Input Mandiri (Supir)') {
+                    $showButton = true;
+                    $btnText    = 'Verifikasi Masuk';
+                    $btnColor   = 'bg-emerald-600 hover:bg-emerald-700';
+                }
+                // 2) Proses KELUAR setelah distribusi selesai
+                elseif ($record->current_stage == 'ttb_distributed') {
+                    $showButton = true;
+                    $btnText    = 'Proses Keluar';
+                    $btnColor   = 'bg-emerald-600 hover:bg-emerald-700';
+                }
+
+            }
+            // LOADING (Bongkar/Muat)
+            elseif ($currentUserRole == 'loading') {
+
+                // Mulai Bongkar/Muat (hanya jika security_start sudah ada)
+                if ($record->current_stage == 'security_in' && !is_null($record->security_start)) {
+                    $showButton = true;
+                    $btnText    = 'Mulai Bongkar/Muat';
+                    $btnColor   = 'bg-blue-600 hover:bg-blue-700';
+                }
+                // Selesai Bongkar/Muat
+                elseif ($record->current_stage == 'loading_started') {
+                    $showButton = true;
+                    $btnText    = 'Selesai Bongkar/Muat';
+                    $btnColor   = 'bg-orange-600 hover:bg-orange-700';
+                }
+
+            }
+            // OFFICER TTB
+            elseif ($currentUserRole == 'ttb') {
+
+                // 1) Mulai TTB
+                if ($record->current_stage == 'loading_ended') {
+                    $showButton = true;
+                    $btnText    = 'Mulai TTB';
+                    $btnColor   = 'bg-blue-600 hover:bg-blue-700';
+                }
+                // 2) Selesai TTB
+                elseif ($record->current_stage == 'ttb_started') {
+                    $showButton = true;
+                    $btnText    = 'Selesai TTB';
+                    $btnColor   = 'bg-orange-600 hover:bg-orange-700';
+                }
+                // 3) Distribusi ke Supir
+                elseif ($record->current_stage == 'ttb_ended') {
+                    $showButton = true;
+                    $btnText    = 'Distribusi ke Supir';
+                    $btnColor   = 'bg-emerald-600 hover:bg-emerald-700';
+                }
+            }
+        @endphp
+
+        @if($showButton)
+            <div class="mt-6 pt-4 border-t border-gray-100">
+                <button wire:click="openUpdateModal({{ $record->id }})" 
+                    class="w-full {{ $btnColor }} text-white py-3 rounded-lg font-bold transition shadow-sm flex justify-center items-center gap-2 active:scale-95">
+                    <span>{{ $btnText }}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                </button>
+            </div>
+        @else
+            <div class="mt-4 pt-3 border-t border-gray-50 text-center">
+                <span class="inline-block px-3 py-1 bg-gray-50 text-gray-400 text-xs italic rounded-full border border-gray-100">
+                    ⏳ Menunggu giliran proses sebelumnya...
+                </span>
+            </div>
+        @endif
+
     @endif
 </div>
