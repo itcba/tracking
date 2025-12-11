@@ -10,21 +10,21 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         User::create([
-            'name' => 'Petugas Keamanan', // Ganti dengan nama asli
+            'name' => 'Security', // Ganti dengan nama asli
             'email' => 'security@example.com',
             'role' => 'security',
             'password' => Hash::make('1111'), // PIN Security
         ]);
 
         User::create([
-            'name' => 'Pekerja Bongkar Muat', // Ganti dengan nama asli
+            'name' => 'Bongkar/Muat', // Ganti dengan nama asli
             'email' => 'loading@example.com',
             'role' => 'loading',
             'password' => Hash::make('2222'), // PIN Loading
         ]);
 
         User::create([
-            'name' => 'Officer TTB', // Ganti dengan nama asli
+            'name' => 'Officer TTB/SJ', // Ganti dengan nama asli
             'email' => 'ttb@example.com',
             'role' => 'ttb',
             'password' => Hash::make('3333'), // PIN TTB
