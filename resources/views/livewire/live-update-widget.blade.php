@@ -4,14 +4,35 @@
         <h2 style="font-size: 20px; font-weight: bold; margin: 0; color: #1f2937;">Update Terkini - Live</h2>
     </div>
     
+    <div style="display:flex; gap:8px; align-items:center; margin-bottom:16px;">
+        <input
+            type="text"
+            placeholder="Cari nomor polisi, kendaraan, sopir atau keterangan..."
+            wire:model.debounce.500ms="search"
+            class="" 
+            style="flex:1; padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px;"
+        />
+        @if($search !== '')
+            <button wire:click="$set('search', '')" style="padding:8px 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff;">Clear</button>
+        @endif
+    </div>
+    
     <div wire:poll.30s id="liveRecordsList" style="max-height: 400px; overflow-y: auto;">
-        @forelse ($liveRecords as $record)
-            @include('livewire.partials.live-record-card', ['record' => $record])
-        @empty
+        @if($liveRecords->isEmpty())
             <div style="text-align: center; padding: 32px;">
-                <p style="font-size: 16px; color: #9ca3af; margin: 0;">Belum ada data</p>
+                <p style="font-size: 16px; color: #9ca3af; margin: 0;">
+                    @if(trim($search) !== '')
+                        Tidak ada data yang cocok untuk "{{ $search }}"
+                    @else
+                        Belum ada data
+                    @endif
+                </p>
             </div>
-        @endforelse
+        @else
+            @foreach ($liveRecords as $record)
+                @include('livewire.partials.live-record-card', ['record' => $record])
+            @endforeach
+        @endif
     </div>
 
     @if ($liveTotal > $liveLimit)
