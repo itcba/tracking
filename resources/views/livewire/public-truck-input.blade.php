@@ -326,6 +326,7 @@
                                     <option value="BUKIT TINGGI TMA"></option>
                                     <option value="BUKIT TINGGI UD. CAM"></option>
                                     <option value="CAACI - PEKANBARU"></option>
+                                    <option value="CBA PABRIK"></option>
                                     <option value="CIANJUR"></option>
                                     <option value="DEPO BARABAI"></option>
                                     <option value="GORONTALO"></option>

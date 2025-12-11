@@ -63,11 +63,11 @@ class TrackingsExport implements FromCollection, WithHeadings
             return [
                 // Identitas
                 // $r->vehicle_name,
+                strtoupper($r->type ?? ''),
                 $r->company_name,
                 $r->plate_number,
                 $r->vehicle_kind,
                 $r->destination,
-                strtoupper($r->type ?? ''),
                 $r->driver_name,
                 $r->driver_phone,
                 $r->driver_identity,
@@ -106,8 +106,8 @@ class TrackingsExport implements FromCollection, WithHeadings
     {
         return [
             // Identitas
-            'Nama Instansi', 'Plat Nomor', 'Jenis Kendaraan', 'Tujuan',
-            'Jenis (B/M)', 'Nama Supir', 'No HP Supir', 'Identitas Supir', 'Keterangan',
+            'Jenis (B/M)','Nama Instansi', 'Plat Nomor', 'Jenis Kendaraan', 'Tujuan',
+            'Nama Supir', 'No HP Supir', 'Identitas Supir', 'Keterangan',
 
             // Surat Jalan / Barang
             'No. Surat Jalan', 'Nama Barang', 'Jumlah Barang',
