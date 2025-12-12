@@ -56,6 +56,44 @@ class LiveUpdateWidget extends Component
         $this->liveLimit += 3;
     }
 
+    /**
+     * Dipanggil saat user menekan Enter pada input search.
+     * Karena input menggunakan wire:model.defer, action ini akan mengirim nilai `search` ke server.
+     */
+    public function performSearch()
+    {
+        if (trim($this->search) !== '') {
+            $this->liveLimit = 50;
+        } else {
+            $this->liveLimit = 2;
+        }
+
+        $this->loadDataForLiveUpdate();
+    }
+
+    /**
+     * Clear search dari server side dan reload data.
+     */
+    public function clearSearch()
+    {
+        $this->search = '';
+        $this->liveLimit = 2;
+        $this->loadDataForLiveUpdate();
+    }
+
+    /**
+     * Dipanggil otomatis oleh Livewire saat properti `search` berubah.
+     * Jika ada kata kunci, tingkatkan limit agar hasil pencarian tidak terpotong.
+     */
+    public function updatedSearch($value)
+    {
+        if (trim($value) !== '') {
+            $this->liveLimit = 50; // tampilkan lebih banyak hasil saat mencari
+        } else {
+            $this->liveLimit = 2; // kembalikan ke default saat kosong
+        }
+    }
+
     public function render()
     {
         // Panggil fungsi ini di render agar wire:poll berfungsi

@@ -8,12 +8,13 @@
         <input
             type="text"
             placeholder="Cari nomor polisi, kendaraan, sopir atau keterangan..."
-            wire:model.debounce.500ms="search"
+            wire:model.defer="search"
+            wire:keydown.enter.prevent="performSearch"
             class="" 
             style="flex:1; padding:8px 12px; border:1px solid #e5e7eb; border-radius:8px;"
         />
-        @if($search !== '')
-            <button wire:click="$set('search', '')" style="padding:8px 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff;">Clear</button>
+            @if($search !== '')
+            <button wire:click="clearSearch" style="padding:8px 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff;">Clear</button>
         @endif
     </div>
     
