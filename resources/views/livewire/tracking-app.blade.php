@@ -298,6 +298,13 @@
                                     </div>
                         @else
                             {{-- (bagian card worker tetap seperti sebelumnya) --}}
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px;">
+                                <div></div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <label for="search_card" style="font-size:14px; color:#6b7280;">Cari:</label>
+                                    <input id="search_card" wire:model.live.debounce.500ms="search" type="text" placeholder="Cari kendaraan / plat / supir..." style="padding:8px 12px; border:1px solid #e5e7eb; border-radius:6px; font-size:14px;">
+                                </div>
+                            </div>
                             <div id="recordsList">
                                 @forelse ($userRecords as $record)
                                     @include('livewire.partials.record-card', [

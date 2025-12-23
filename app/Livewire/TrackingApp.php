@@ -487,11 +487,20 @@ class TrackingApp extends Component
                 $userRecords = $query->latest()->paginate($this->perPage);
 
             } else {
-                // User lain lihat list card aktif
-                $userRecords = Tracking::where('current_stage', '!=', 'completed')
-                                       ->where('current_stage', '!=', 'canceled')
-                                       ->latest()
-                                       ->get();
+                // User lain lihat list card aktif (with optional search)
+                $query = Tracking::where('current_stage', '!=', 'completed')
+                                 ->where('current_stage', '!=', 'canceled');
+
+                if (!empty($this->search)) {
+                    $query->where(function ($q) {
+                        $q->where('vehicle_name', 'like', '%' . $this->search . '%')
+                          ->orWhere('plate_number', 'like', '%' . $this->search . '%')
+                          ->orWhere('driver_name', 'like', '%' . $this->search . '%')
+                          ->orWhere('company_name', 'like', '%' . $this->search . '%');
+                    });
+                }
+
+                $userRecords = $query->latest()->get();
             }
         } 
         
