@@ -27,7 +27,7 @@ class TrackingApp extends Component
     public $editingRecord;
 
     // Data Kendaraan (Input Security / Admin / Supir)
-    public $vehicle_name, $plate_number, $description;
+    public $vehicle_name, $plate_number, $description, $keterangan;
     public $driver_name; // Input Nama Supir
     public $type = ''; 
 
@@ -147,6 +147,7 @@ class TrackingApp extends Component
                 $this->vehicle_kind        = $this->editingRecord->vehicle_kind;
                 $this->destination         = $this->editingRecord->destination;
                 $this->description         = $this->editingRecord->description;
+                $this->keterangan          = $this->editingRecord->keterangan;
                 $this->type                = $this->editingRecord->type;
                 $this->driver_name         = $this->editingRecord->driver_name;
                 $this->driver_phone        = $this->editingRecord->driver_phone;
@@ -178,6 +179,7 @@ class TrackingApp extends Component
             'vehicle_kind',
             'destination',
             'description',
+            'keterangan',
             'type',
             'officer_name',
             'driver_name',
@@ -217,6 +219,7 @@ class TrackingApp extends Component
                 'driver_phone'        => $this->driver_phone,
                 'driver_identity'     => $this->driver_identity,
                 'description'         => $this->description,
+                'keterangan'          => $this->keterangan,
                 'type'                => $this->type,
                 'sj_number'           => $this->sj_number,
                 'item_name'           => $this->item_name,
@@ -249,6 +252,7 @@ class TrackingApp extends Component
                 'company_name' => 'required',
                 'plate_number' => 'required',
                 'type'         => 'required',
+                'custom_time'  => 'nullable|date',
             ]);
             
             $this->editingRecord->update([
@@ -262,6 +266,7 @@ class TrackingApp extends Component
                 'driver_identity'     => $this->driver_identity,
                 'type'                => $this->type,
                 'description'         => $this->description,
+                'keterangan'          => $this->keterangan,
                 'sj_number'           => $this->sj_number,
                 'item_name'           => $this->item_name,
                 'item_quantity'       => $this->item_quantity,
@@ -291,6 +296,7 @@ class TrackingApp extends Component
                 'driver_phone'        => $this->driver_phone,
                 'driver_identity'     => $this->driver_identity,
                 'description'         => $this->description,
+                'keterangan'          => $this->keterangan,
                 'type'                => $this->type,
                 'sj_number'           => $this->sj_number,
                 'item_name'           => $this->item_name,
@@ -304,6 +310,9 @@ class TrackingApp extends Component
         
         // 5. LOGIKA UPDATE BERURUTAN (ROLE PETUGAS)
         elseif ($this->modalAction === 'update') {
+            $this->validate([
+                'officer_name' => 'required',
+            ]);
             $record = $this->editingRecord;
 
             // A. LOADING (Bongkar/Muat)
@@ -321,6 +330,7 @@ class TrackingApp extends Component
                         'loading_end'          => $now,
                         'loading_end_officer'  => $this->officer_name,
                         'current_stage'        => 'loading_ended',
+                        'keterangan'           => $this->keterangan,
                     ]);
                 } else {
                     session()->flash('error', 'Urutan salah! Tunggu Security Masuk atau proses sudah selesai.');
@@ -487,11 +497,20 @@ class TrackingApp extends Component
                 $userRecords = $query->latest()->paginate($this->perPage);
 
             } else {
-                // User lain lihat list card aktif
-                $userRecords = Tracking::where('current_stage', '!=', 'completed')
-                                       ->where('current_stage', '!=', 'canceled')
-                                       ->latest()
-                                       ->get();
+                // User lain lihat list card aktif (with optional search)
+                $query = Tracking::where('current_stage', '!=', 'completed')
+                                 ->where('current_stage', '!=', 'canceled');
+
+                if (!empty($this->search)) {
+                    $query->where(function ($q) {
+                        $q->where('vehicle_name', 'like', '%' . $this->search . '%')
+                          ->orWhere('plate_number', 'like', '%' . $this->search . '%')
+                          ->orWhere('driver_name', 'like', '%' . $this->search . '%')
+                          ->orWhere('company_name', 'like', '%' . $this->search . '%');
+                    });
+                }
+
+                $userRecords = $query->latest()->get();
             }
         } 
         

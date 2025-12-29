@@ -149,4 +149,13 @@
             </p>
         </div>
     @endif
+
+    {{-- Keterangan Tambahan --}}
+    @if($record->keterangan)
+        <div style="margin-top: 8px;">
+             <p style="font-size: 13px; color: #6b7280; margin: 0; line-height: 1.4;">
+                📌 {{ $record->keterangan }}
+            </p>
+        </div>
+    @endif
 </div>

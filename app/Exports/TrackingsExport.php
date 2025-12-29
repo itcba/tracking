@@ -83,7 +83,7 @@ class TrackingsExport implements FromCollection, WithHeadings
 
                 // Bongkar / Muat
                 $loadS['date'], $loadS['time'], $r->loading_start_officer,
-                $loadE['date'], $loadE['time'], $r->loading_end_officer,
+                $loadE['date'], $loadE['time'], $r->loading_end_officer, $r->keterangan,
 
                 // TTB / SJ
                 $ttbS['date'], $ttbS['time'], $r->ttb_start_officer,
@@ -117,7 +117,7 @@ class TrackingsExport implements FromCollection, WithHeadings
 
             // Bongkar / Muat
             'Bongkar/Muat Mulai - Tanggal', 'Bongkar/Muat Mulai - Waktu', 'Bongkar/Muat Mulai - Nama', 
-            'Bongkar/Muat Selesai - Tanggal', 'Bongkar/Muat Selesai - Waktu', 'Bongkar/Muat Selesai - Nama Petugas',
+            'Bongkar/Muat Selesai - Tanggal', 'Bongkar/Muat Selesai - Waktu', 'Bongkar/Muat Selesai - Nama Petugas', 'Keterangan Tambahan Bongkar/Muat',
 
             // TTB/SJ
             'TTB/SJ Mulai - Tanggal', 'TTB/SJ Mulai - Waktu', 'TTB/SJ Mulai - Nama Officer',
