@@ -254,7 +254,6 @@ class TrackingApp extends Component
                 'company_name' => 'required',
                 'plate_number' => 'required',
                 'type'         => 'required',
-                'custom_time'  => 'nullable|date',
             ]);
             
             $this->editingRecord->update([
