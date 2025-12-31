@@ -520,6 +520,7 @@ class TrackingApp extends Component
         return view('livewire.tracking-app', [
             'userRecords' => $userRecords,
             'stages'      => $this->stages,
+            'user'        => Auth::user(),
         ])->layout('layouts.app');
     }
 }

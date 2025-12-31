@@ -6,8 +6,10 @@ use App\Models\Tracking;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\Exportable;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
 
-class TrackingsExport implements FromCollection, WithHeadings
+class TrackingsExport implements FromCollection, WithHeadings, WithEvents
 {
     use Exportable;
 
@@ -146,5 +148,26 @@ class TrackingsExport implements FromCollection, WithHeadings
             'canceled'        => 'Dibatalkan',
             default           => 'Berlangsung',
         };
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function(AfterSheet $event) {
+                $sheet = $event->sheet;
+                $highestRow = $sheet->getHighestRow();
+                $highestColumn = $sheet->getHighestColumn();
+                $range = 'A1:' . $highestColumn . $highestRow;
+
+                // Center alignment for all cells
+                $sheet->getStyle($range)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+
+                // Add borders to all cells
+                $sheet->getStyle($range)->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+
+                // Make header row bold
+                $sheet->getStyle('A1:' . $highestColumn . '1')->getFont()->setBold(true);
+            },
+        ];
     }
 }
